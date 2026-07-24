@@ -10,7 +10,8 @@ from app.models.refresh_token import RefreshToken
 class User(Base):
     __tablename__ = "users" # Tiene que coincidir exacto con la tabla real en la BD
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    role: Mapped[str] = mapped_column(String(20), default="admin", nullable=False)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
