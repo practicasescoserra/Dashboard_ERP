@@ -1,12 +1,12 @@
 services:
   postgres:
     image: postgres:17
-    container_name: App_Login
+    container_name: Dashboard_ERP
     restart: unless-stopped
     environment:
       POSTGRES_USER: app_user
       POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: App_Login
+      POSTGRES_DB: Dashboard_ERP
     ports:
       - "5432:5432"
     volumes:
@@ -14,10 +14,10 @@ services:
 
   backend:
     build: ./backend
-    container_name: App_Login_backend
+    container_name: Dashboard_ERP_backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://app_user:1234@postgres:5432/App_Login
+      DATABASE_URL: postgresql+asyncpg://app_user:1234@postgres:5432/Dashboard_ERP
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
@@ -33,7 +33,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: http://localhost:8000
-    container_name: App_Login_frontend
+    container_name: Dashboard_ERP_frontend
     restart: unless-stopped
     ports:
       - "5173:80"
