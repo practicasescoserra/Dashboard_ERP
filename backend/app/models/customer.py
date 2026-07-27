@@ -16,7 +16,7 @@ class Customer(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     country: Mapped[str] = mapped_column(String(100), nullable=False)
-    phone: Mapped[int] = mapped_column(String(30), unique=True, nullable=True)
+    phone: Mapped[str] = mapped_column(String(30), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False, server_default=text("now()"))
 
     orders: Mapped[list["Order"]] = relationship(back_populates="customer")

@@ -16,7 +16,7 @@ class Order(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    total: Mapped[int] = mapped_column(Numeric(10,2), nullable=False)
+    total: Mapped[float] = mapped_column(Numeric(10,2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
 
     customer: Mapped["Customer"] = relationship(back_populates="orders")
