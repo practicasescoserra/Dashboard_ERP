@@ -70,13 +70,6 @@ function LoginPage() {
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
-
-          <p className="text-center text-sm text-[#8B8F97] mt-6">
-            ¿No tienes cuenta?{' '}
-            <Link to="/register" className="text-[#ECEAE4] underline underline-offset-2 hover:text-[#C9A227]">
-              Regístrate
-            </Link>
-          </p>
         </div>
       </div>
     </div>

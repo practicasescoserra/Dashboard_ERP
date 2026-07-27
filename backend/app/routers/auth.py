@@ -7,7 +7,7 @@ from sqlalchemy import select, or_
 from app.database import get_db
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
-from app.schemas.user import UserRegister, UserResponse
+from app.schemas.user import UserCreate, UserResponse
 from app.schemas.auth import TokenResponse, LoginRequest
 from app.services.security import (
     hash_password, verify_password,
@@ -18,34 +18,6 @@ from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"]) # Prefijo para el router (No tener que escribir /auth en cada endpoint)
 REFRESH_COOKIE_NAME = "refresh_token"  # Nombre de la cookie para el token de actualización
-
-
-# Registro de usuario
-@router.post("/register", response_model = UserResponse, status_code = status.HTTP_201_CREATED)
-# UserRegister para que FastAPI valide el JSON y Depends(get_db) para iniciar la sesion hacia la BD
-async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
-
-    # Busca si ya existe un usuario con el mismo nombre de usuario o correo electrónico
-    result = await db.execute(  
-        select(User).where(or_(User.username == data.username, User.email == data.email)) 
-    )
-    if result.scalar_one_or_none() is not None: # Si ya existe uno entonces lanza un error
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El nombre de usuario o correo electrónico ya está en uso",
-        )
-    
-    # Crea una instancia del modelo User y lo guarda en la BD
-    new_user = User(
-        username = data.username,
-        email = data.email,
-        password_hash = hash_password(data.password), # Hashea la contraseña
-        full_name = data.full_name,
-    )
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user) # Vuelve a leer el registro para obtener el ID, created_at, updated_at
-    return new_user 
 
 
 # Login de usuario
