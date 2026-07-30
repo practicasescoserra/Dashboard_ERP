@@ -1,6 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 from decimal import Decimal
 
+class ProductOption(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name:str
+    price: Decimal
+    stock: int
+
 class ProductCreate(BaseModel):
     name: str
     category_id: int

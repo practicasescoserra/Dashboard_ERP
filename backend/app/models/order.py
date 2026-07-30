@@ -18,7 +18,6 @@ class Order(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     total: Mapped[float] = mapped_column(Numeric(10,2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
-
     customer: Mapped["Customer"] = relationship(back_populates="orders")
-    items: Mapped[list["Order_Item"]] = relationship(back_populates="order")
+    items: Mapped[list["Order_Item"]] = relationship(back_populates="order", cascade="all, delete-orphan")
 

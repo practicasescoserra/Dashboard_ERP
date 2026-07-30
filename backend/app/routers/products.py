@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.user import User
 from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
+from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse, ProductOption
 from app.dependencies.roles import required_role
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -20,6 +20,15 @@ async def list_products(
     result = await db.execute(
         select(Product).options(selectinload(Product.category)).order_by(Product.id)
     )
+    return result.scalars().all()
+
+# Endpoint de acceso limitado a productos para vendedor
+@router.get("/options", response_model=list[ProductOption])
+async def list_product_options(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(required_role("admin", "vendedor")),
+):
+    result = await db.execute(select(Product))
     return result.scalars().all()
 
 # Crear Producto

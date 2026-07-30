@@ -10,6 +10,7 @@ from app.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
+# Listar categorias
 @router.get("/", response_model=list[CategoryResponse])
 async def list_categories(
     db: AsyncSession = Depends(get_db),
