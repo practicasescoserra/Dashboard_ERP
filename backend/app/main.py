@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 
-from app.routers import auth, users, products, categories, customers, orders, analytics
+from app.routers import auth, users, products, categories, customers, orders, analytics, dashboard
 
 app = FastAPI(title="Mi App Login") # Crea instancia de la app para usarla con uvicorn
 
@@ -23,6 +23,7 @@ app.include_router(categories.router)
 app.include_router(customers.router)
 app.include_router(orders.router)
 app.include_router(analytics.router)
+app.include_router(dashboard.router)
 
 # Verificacion rapida que el servidor esta corriendo
 @app.get("/")
