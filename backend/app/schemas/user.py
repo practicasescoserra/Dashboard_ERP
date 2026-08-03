@@ -18,3 +18,9 @@ class UserResponse(BaseModel):
     email: str
     full_name: str | None = None
     role: str
+    is_active: bool
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    role: str | None = None
+    is_active: bool | None = None

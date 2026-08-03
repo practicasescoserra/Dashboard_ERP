@@ -12,6 +12,7 @@ import CustomersPage from './pages/CustomersPage'
 import NotFoundPage from './pages/NotFoundPage'
 import OrdersPage from './pages/OrdersPages'
 import AnalyticsPage from './pages/AnalyticsPage'
+import UsersPage from './pages/UsersPage'
 
 function App() {
   return (
@@ -62,6 +63,15 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={["admin", "analista"]}>
                 <AnalyticsPage />
+              </RoleProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/users"
+            element={
+              <RoleProtectedRoute allowedRoles={["admin"]}>
+                <UsersPage />
               </RoleProtectedRoute>
             }
           />

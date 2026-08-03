@@ -17,6 +17,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 MONTHLY_TARGET = 7500
 
+# Calcular porcentajes (protegemos en caso de division entre 0)
 def growth_pct(current: int, previous: int,) -> float:
     if previous == 0:
         return 100.0 if current > 0 else 0.0
@@ -27,6 +28,7 @@ async def get_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(required_role("admin", "analista")),
 ):
+    # Establecemos cuando inicia y cuando termina los meses a calcular
     now = datetime.utcnow()
     current_month_start = datetime(now.year, now.month, 1)
     if now.month == 1:
@@ -35,7 +37,7 @@ async def get_dashboard(
         prev_month_start = datetime(now.year, now.month -1, 1)
     prev_month_end = current_month_start
 
-    # --- Métricas de tarjetas (customers, orders) con comparación al mes anterior ---
+    # Métricas de tarjetas (customers, orders) con comparación al mes anterior 
     current_customers = (await db.execute(
         select(func.count(Customer.id)).where(Customer.created_at >= current_month_start)
     )).scalar_one()
