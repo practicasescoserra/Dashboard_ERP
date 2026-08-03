@@ -13,6 +13,8 @@ import NotFoundPage from './pages/NotFoundPage'
 import OrdersPage from './pages/OrdersPages'
 import AnalyticsPage from './pages/AnalyticsPage'
 import UsersPage from './pages/UsersPage'
+import HomeRedirect from './components/HomeRedirect'
+
 
 function App() {
   return (
@@ -28,7 +30,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index path="/" element={<DashboardPage />} />
+          <Route index path="/" element={<HomeRedirect />} />
           <Route path="/profile" element={<ProfilePage />} />
 
           <Route
