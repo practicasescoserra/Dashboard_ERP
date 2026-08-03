@@ -1,6 +1,6 @@
-# App_Login
+# Dashboard ERP
 
-Aplicación web de autenticación (login) construida como proyecto de aprendizaje, implementando JWT con access tokens y refresh tokens rotativos, sobre un stack containerizado con Docker.
+Panel administrativo tipo ERP con autenticación JWT, control de acceso basado en roles (RBAC), e-commerce mock (productos, clientes, pedidos), analytics con exportación de reportes, y un dashboard con métricas en tiempo real. Construido sobre la base del proyecto de aprendizaje [App_Login], integrando el template de UI [TailAdmin] (React + Tailwind) con datos reales.
 
 ## Stack tecnológico
 
@@ -8,138 +8,112 @@ Aplicación web de autenticación (login) construida como proyecto de aprendizaj
 |---|---|
 | Base de datos | PostgreSQL 17 |
 | Backend | Python 3.13 + FastAPI + SQLAlchemy (async) + Alembic |
-| Autenticación | JWT (python-jose) + bcrypt (passlib) |
-| Frontend | React 19 + Vite + React Router + Tailwind CSS v4 |
+| Autenticación | JWT (access token + refresh token rotativo) + bcrypt |
+| Frontend | React 19 + Vite + React Router + Tailwind CSS v4 + ApexCharts |
+| UI base | TailAdmin (template libre), adaptado e integrado con datos reales |
+| Reportes | pandas + openpyxl (exportación CSV/Excel) |
 | Contenedores | Docker + Docker Compose (multi-stage build en frontend) |
-| Servidor de archivos estáticos | Nginx (sirviendo el build de producción del frontend) |
 
-## Arquitectura general
+## Sistema de roles (RBAC)
 
-```
-┌─────────────┐      HTTP/JSON       ┌─────────────┐      SQL (async)     ┌─────────────┐
-│   Frontend   │ ───────────────────▶ │   Backend    │ ───────────────────▶ │  PostgreSQL  │
-│ React + Vite │ ◀─────────────────── │   FastAPI    │ ◀─────────────────── │              │
-│ (Nginx :80)  │   cookies httpOnly    │   (:8000)    │                       │   (:5432)    │
-└─────────────┘                       └─────────────┘                       └─────────────┘
-```
+Cada usuario tiene un rol único, almacenado en `users.role`, validado en cada endpoint protegido mediante la dependencia `require_role(...)` de FastAPI y reflejado en el frontend (rutas y sidebar dinámicos).
 
-Los tres servicios corren en contenedores separados, orquestados por `docker-compose.yml`, comunicándose entre sí por nombre de servicio dentro de la red interna que crea Docker Compose (no por `localhost`).
+| Rol | Acceso |
+|---|---|
+| `admin` | Acceso completo a todas las secciones, incluida gestión de usuarios |
+| `proveedor` | Inventario (productos) |
+| `analista` | Clientes, Analytics |
+| `vendedor` | Pedidos |
 
-## Flujo de autenticación
+El registro de cuentas **no es público**: solo un `admin` puede crear usuarios (incluida la asignación de rol), desde la sección "Usuarios". El primer administrador se crea manualmente en la base de datos (ver sección de instalación).
 
-1. **Registro** (`POST /auth/register`): la contraseña se hashea con bcrypt antes de guardarse. Nunca se almacena en texto plano.
-2. **Login** (`POST /auth/login`): valida credenciales (usuario o email) y devuelve:
-   - Un **access token** (JWT, expira en 60 min) en el body de la respuesta.
-   - Un **refresh token** (string aleatorio, expira en 7 días) en una cookie `httpOnly`, `SameSite=Strict`.
-   - El refresh token se guarda en la base de datos **hasheado** (SHA-256), nunca en texto plano.
-3. **Peticiones protegidas**: el access token viaja en el header `Authorization: Bearer <token>` y se valida sin consultar la base de datos (stateless), salvo una verificación de que el usuario siga existiendo y activo.
-4. **Refresh** (`POST /auth/refresh`): cuando el access token expira, se usa la cookie del refresh token para pedir uno nuevo. Cada uso de un refresh token lo **revoca y genera uno nuevo** (rotación), enlazando el token viejo con el nuevo (`replaced_by_token_id`) para trazabilidad y detección de reuso indebido.
-5. **Logout** (`POST /auth/logout`): revoca el refresh token actual en la base de datos y borra la cookie.
-6. **En el frontend**: el access token vive únicamente en memoria (estado de React), nunca en `localStorage`, para reducir superficie de ataque ante XSS. Al recargar la página, se intenta recuperar la sesión automáticamente vía `/auth/refresh` (aprovechando la cookie). Si una petición protegida falla con `401` durante el uso activo, se reintenta automáticamente tras un refresh silencioso.
+## Secciones de la aplicación
 
-## Estructura del proyecto
+- **Dashboard**: métricas de clientes/pedidos con crecimiento mes a mes, ventas mensuales, meta mensual de ingresos ($7,500 fijo), pedidos recientes, clientes por país. Redirige automáticamente a la sección correspondiente si el rol del usuario no tiene acceso al dashboard general (`proveedor` → Inventario, `vendedor` → Pedidos).
+- **Inventario**: CRUD de productos con filtro por nombre/categoría.
+- **Clientes**: CRUD de clientes con filtro por nombre/email/país.
+- **Pedidos**: creación con selector de cliente/productos (autocompletar), detalle con items, cambio de estado (Delivered/Pending/Canceled), control automático de stock (se descuenta al crear, se restaura al eliminar).
+- **Analytics**: filtros de fecha (rápidos y rango custom con calendario), gráficas de ventas/clientes nuevos por día/mes/año, top productos, exportación de reportes (pedidos o resumen) en CSV o Excel.
+- **Usuarios** (solo admin): listar, crear, editar rol, activar/desactivar cuentas.
 
-```
-App_Login/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # punto de entrada, CORS, routers
-│   │   ├── config.py            # variables de entorno (Pydantic Settings)
-│   │   ├── database.py          # conexión async a Postgres (SQLAlchemy)
-│   │   ├── models/               # User, RefreshToken (SQLAlchemy ORM)
-│   │   ├── schemas/               # esquemas Pydantic (request/response)
-│   │   ├── routers/                # endpoints (auth, users)
-│   │   ├── services/               # lógica de hashing y JWT
-│   │   └── dependencies/           # dependencias de FastAPI (auth guard)
-│   ├── alembic/                    # migraciones de base de datos
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── api/client.js           # cliente fetch centralizado
-│   │   ├── context/AuthContext.jsx # estado global de sesión (Context API)
-│   │   ├── components/ProtectedRoute.jsx
-│   │   └── pages/                  # LoginPage, RegisterPage, ProfilePage
-│   ├── Dockerfile                  # multi-stage: build (Node) + serve (Nginx)
-│   └── nginx.conf
-├── docker-compose.yml
-└── .env                            # JWT_SECRET_KEY (no se sube a Git)
-```
+## Modelo de base de datos
+
+Además de `users` y `refresh_tokens` (heredadas del proyecto de login original, con la columna `role` agregada a `users`):
+
+- **categories**: catálogo de categorías de producto.
+- **products**: `category_id` (FK), precio, stock, imagen.
+- **customers**: incluye `country` (usado en el widget de demografía del dashboard).
+- **orders**: `customer_id` (FK), estado, total, fecha.
+- **order_items**: tabla intermedia entre `orders` y `products`, con cantidad y precio unitario al momento de la venta.
+
+Las tablas de e-commerce se poblaron con datos de prueba: `categories` insertadas manualmente, `products`/`customers` generados con Mockaroo, y `orders`/`order_items` con un script propio (`backend/scripts/seed_orders.py`) que distribuye pedidos realistas en los últimos 12 meses.
 
 ## Cómo levantar el proyecto
 
 ### Requisitos previos
-- Docker y Docker Compose instalados.
+Docker y Docker Compose instalados.
 
 ### Pasos
 
 1. Clonar el repositorio.
-2. Crear el archivo `.env` en la raíz del proyecto con:
+2. Crear `.env` en la raíz con:
    ```
    JWT_SECRET_KEY=<generar con el comando de abajo>
    ```
-   Generar un secreto seguro:
    ```bash
    python3 -c "import secrets; print(secrets.token_hex(32))"
    ```
-3. Levantar todo el stack:
+3. Levantar el stack:
    ```bash
    docker compose up -d --build
    ```
-4. Verificar:
-   - Backend: http://localhost:8000/docs
-   - Frontend: http://localhost:5173
+4. Las tablas se crean automáticamente vía Alembic al arrancar el backend.
 
-Las tablas de la base de datos se crean automáticamente al arrancar el backend, mediante `alembic upgrade head` (definido en el `CMD` del `Dockerfile` del backend).
+### Crear el primer usuario administrador
+
+Como el registro es exclusivo de administradores, el primer `admin` se crea manualmente:
+
+1. Genera el hash de una contraseña:
+   ```bash
+   python3 -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('tu_contraseña'))"
+   ```
+2. En DBeaver, inserta el usuario directamente:
+   ```sql
+   INSERT INTO users (username, email, password_hash, full_name, is_active, role)
+   VALUES ('admin', 'admin@ejemplo.com', '<hash generado>', 'Administrador', true, 'admin');
+   ```
+3. Inicia sesión con esas credenciales; desde "Usuarios" ya puedes crear el resto de cuentas con sus roles correspondientes.
+
+### Verificar
+- Backend: http://localhost:8000/docs
+- Frontend: http://localhost:5173
 
 ## Desarrollo local (sin Docker, para backend/frontend)
 
-Postgres corre siempre en Docker. Backend y frontend pueden correrse localmente para desarrollo con recarga en caliente:
+Igual que en el proyecto original: Postgres siempre en Docker; backend con `venv` + Uvicorn; frontend con `npm run dev`. Ver `backend/.env.example` para las variables necesarias.
 
-**Backend:**
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-# crear backend/.env con DATABASE_URL, JWT_SECRET_KEY, etc. (ver .env.example)
-alembic upgrade head
-uvicorn app.main:app --reload
-```
+## Notas de arquitectura y decisiones tomadas
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
+- **`authRequest`** (frontend): envuelve las peticiones autenticadas, agregando el token automáticamente y reintentando con refresh si el access token expiró — sin que el usuario lo note.
+- **`authDownload`**: variante de lo anterior para descargar archivos binarios (reportes), ya que un blob no puede procesarse como JSON.
+- **`RoleProtectedRoute`**: capa adicional sobre `ProtectedRoute` que bloquea el acceso a rutas por rol (no solo por sesión), redirigiendo a `/` si el usuario no tiene permiso.
+- **Autocompletar propio** (`Autocomplete.jsx`): reemplaza los `<select>` nativos en el formulario de pedidos por un componente con filtro en vivo, ya que el volumen de clientes/productos hacía los selects nativos poco prácticos.
+- **Widget de países propio** (`CustomersByCountry.jsx`): reemplaza el mapa original del template (`@react-jvectormap`), que resultó incompatible con el bundler de Vite (dependencias internas pensadas para Webpack).
+- **Sistema de Toasts propio** (`ToastContext.jsx`): notificaciones de éxito/error con iconografía específica por acción (crear/editar/eliminar/error), en vez de alertas nativas del navegador.
 
-## Modelo de base de datos
+## Pendiente si este proyecto se llevara a producción real
 
-**users**: `id`, `username` (único), `email` (único), `password_hash`, `full_name`, `is_active`, `created_at`, `updated_at`.
+Este es un proyecto de aprendizaje y no está pensado para desplegarse tal cual. Si se hiciera, quedaría pendiente:
+- Cambiar `secure=False` a `True` en las cookies de refresh token (requiere servir todo por HTTPS).
+- Ajustar `FRONTEND_URL`/CORS al dominio real.
+- Revisar el historial de Git para confirmar que ningún `.env` real se haya subido por accidente.
+- Considerar un sistema de permisos más granular (tabla de roles/permisos) si los 4 roles fijos actuales se quedaran cortos.
+- Rate limiting en endpoints de autenticación.
 
-**refresh_tokens**: `id`, `user_id` (FK → users, ON DELETE CASCADE), `token_hash` (único), `expires_at`, `revoked`, `replaced_by_token_id` (auto-referencia, ON DELETE SET NULL), `created_at`.
+## Aprendizajes clave de esta fase del proyecto
 
-## Notas de seguridad implementadas
-
-- Contraseñas hasheadas con bcrypt (nunca texto plano ni cifrado reversible).
-- Refresh tokens hasheados en base de datos (SHA-256).
-- Access tokens de corta duración (60 min) + refresh tokens rotativos.
-- Cookies del refresh token: `httpOnly` (inaccesible desde JavaScript), `SameSite=Strict` (mitiga CSRF).
-- Mensajes de error genéricos en login para evitar enumeración de usuarios.
-- CORS restringido a un origen específico (no `*`), con credenciales habilitadas.
-- Secretos (JWT key, credenciales de base de datos) fuera del código fuente, vía variables de entorno.
-
-### Pendiente antes de un despliegue en producción real
-- Cambiar `secure=False` a `True` en las cookies (requiere HTTPS).
-- Servir la aplicación completa bajo HTTPS.
-- Ajustar `FRONTEND_URL`/CORS al dominio real de producción.
-
-## Aprendizajes clave del proyecto
-
-- Diseño de base de datos relacional con integridad referencial (FKs, cascadas).
-- Migraciones de base de datos versionadas con Alembic.
-- Autenticación stateless con JWT y el patrón de refresh token rotativo.
-- Manejo de estado global en React con Context API y hooks (`useState`, `useEffect`, `useRef`, `useContext`).
-- CORS, cookies `httpOnly` y comunicación cross-origin entre frontend y backend.
-- Containerización con Docker, incluyendo builds multi-etapa para optimizar imágenes de producción.
+- Integración de un template de terceros (TailAdmin) con lógica de negocio y autenticación reales, incluyendo resolución de conflictos de bundler (Vite vs. dependencias pensadas para Webpack) y de tipado (TypeScript estricto conviviendo con JavaScript propio).
+- Diseño e implementación de RBAC (control de acceso basado en roles) tanto en backend (dependencias de FastAPI reutilizables) como en frontend (rutas y UI condicionadas por rol).
+- Modelado de un dominio de e-commerce con relaciones reales (categorías, productos, clientes, pedidos, items de pedido) y generación de datos de prueba realistas.
+- Agregaciones y reportes con SQL (`date_trunc`, `GROUP BY`) y exportación de archivos con `pandas`.
+- Componentes reutilizables de UI construidos desde cero cuando el template no cubría la necesidad (autocompletar, toasts, gráfico de barras simple) en vez de forzar una librería incompatible.
